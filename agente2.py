@@ -5,8 +5,8 @@ import heapq
 from agente import COLORS
 
 # === Configuración ===
-TILE_SIZE = 40
-ROWS, COLS = 10, 15
+TILE_SIZE = 80
+ROWS, COLS = 4, 4
 EMPTY, OBSTACLE, START, GOAL = 0, 1, 2, 3
 
 # Colores\COLORS = 
@@ -28,12 +28,13 @@ maze[start[0]][start[1]] = START
 maze[goal[0]][goal[1]]   = GOAL
 
 # --- Funciones de búsqueda ---
-def get_neighbors(pos):
-    x, y = pos
+def get_neighbors(posicion):
+    x, y = posicion
     for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)]:
         nx, ny = x+dx, y+dy
-        if 0 <= nx < ROWS and 0 <= ny < COLS and maze[nx][ny] != OBSTACLE:
-            yield (nx, ny)
+        if 0 <= nx < ROWS and 0 <= ny < COLS:
+            if maze[nx][ny] != OBSTACLE:
+                yield (nx, ny)
 
 def manhattan(a, b):
     return abs(a[0]-b[0]) + abs(a[1]-b[1])
