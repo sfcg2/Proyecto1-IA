@@ -10,7 +10,18 @@ TILE_SIZE = 150
 ROWS, COLS = 4,4
 EMPTY, OBSTACLE, START, GOAL = 0, 1, 2, 3
 ROBOT_COLOR = 4
-mensajes = []
+mensajes = [
+
+    "Estado Inicial: (2,0)",
+    " ",
+    "Operadores: Arriba, Abajo, Izquierda, Derecha",
+    " ",
+    "Costo de cada celda: 1",
+    " ",
+    "Meta: El ratón encuentra el queso.",
+    " ",
+    "*Evita devolverse"
+]
 # Colores
 COLORS = {
     0: (255, 255, 255),        # blanco (vacío)
@@ -134,7 +145,7 @@ def a_star(start, goal, screen):
 def draw_tile(screen, pos, cell_type):
     color = COLORS[cell_type] if isinstance(cell_type, int) else COLORS[cell_type]
     pygame.draw.rect(screen, color, (pos[1] * TILE_SIZE, pos[0] * TILE_SIZE, TILE_SIZE, TILE_SIZE))
-    pygame.draw.rect(screen, (79, 93, 98), (pos[1] * TILE_SIZE, pos[0] * TILE_SIZE, TILE_SIZE, TILE_SIZE), 1)
+    pygame.draw.rect(screen, (79, 93, 98), (pos[1] * TILE_SIZE, pos[0] * TILE_SIZE, TILE_SIZE, TILE_SIZE), 2)
 
 def draw_maze(screen, path=None, robot_pos=None):
     for i in range(ROWS):
@@ -219,6 +230,9 @@ def uniform_cost_search(start, goal, screen):
 # --- Búsqueda Avara ---
 def greedy_best_first_search(start, goal, screen):
     frontier = []
+    mensajes.clear()
+    draw_sidebar(screen)
+    iteraciones = 0
     heapq.heappush(frontier, (manhattan(start, goal), start))  # (heurística, posición)
     came_from = {start: None}
 
@@ -238,6 +252,8 @@ def greedy_best_first_search(start, goal, screen):
                 if maze[neighbor[0]][neighbor[1]] not in [2, 3]:
                     draw_tile(screen, neighbor, 'visited')
         pygame.display.flip()
+        mensajes.append(f'H({iteraciones+1}): {priority}')
+        iteraciones += 1
 
     return reconstruct_path(came_from, start, goal)
 
@@ -285,8 +301,8 @@ def almacenamiento_mensajes(mensaje):
 
 # --- Actualización del Sidebar ---
 def draw_sidebar(screen):
-    sidebar_width = 300
-    pygame.draw.rect(screen, (192, 227, 237), (COLS * TILE_SIZE, 0, sidebar_width, ROWS * TILE_SIZE))
+    sidebar_width = 400
+    pygame.draw.rect(screen, (192, 227, 237), (COLS * TILE_SIZE, 0, sidebar_width, ROWS * TILE_SIZE + 20))
     font = pygame.font.SysFont("Comic Sans", 17)
     instructions = [
         "1: BFS",
@@ -303,20 +319,20 @@ def draw_sidebar(screen):
     ]
     for i, text in enumerate(instructions):
         img = font.render(text, True, (0, 0, 0))
-        screen.blit(img, (COLS * TILE_SIZE + 10, 10 + i * 30))
+        screen.blit(img, (COLS * TILE_SIZE + 10, 10 + i * 35))
 
     #Area donde muestra los mensajes, cuando cambia de un algoritmo a otro
     area_x = COLS * TILE_SIZE + 10
     area_y = 400
     area_ancho = sidebar_width - 20
-    area_altura = 100
+    area_altura = 200
     
     pygame.draw.rect(screen, (255, 255, 255), (area_x, area_y, area_ancho, area_altura),0,20)
     font = pygame.font.SysFont("Comic Sans", 17)
 
     for i, mensj in enumerate(mensajes):
         img = font.render(mensj, True, (0, 0, 0))
-        screen.blit(img, (area_x + 5, area_y + 5 + i *20))
+        screen.blit(img, (area_x + 5, area_y+5 + i *20))
     
 
 
@@ -327,7 +343,7 @@ def main():
     global ROWS, COLS, start, goal, maze
     # Cargar configuración inicial
     load_maze_from_file("maze_config.json")
-    screen = pygame.display.set_mode((COLS * TILE_SIZE + 300, ROWS * TILE_SIZE))
+    screen = pygame.display.set_mode((COLS * TILE_SIZE + 400, ROWS * TILE_SIZE+10))
     pygame.display.set_caption("Agente Inteligente - Laberinto Dinámico")
     running = True
     path = []
