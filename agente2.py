@@ -6,20 +6,22 @@ from collections import deque
 import json
 
 # === Configuración ===
-TILE_SIZE = 40
+TILE_SIZE = 80
+ROWS, COLS = 4,4
+EMPTY, OBSTACLE, START, GOAL = 0, 1, 2, 3
+ROBOT_COLOR = 4
 # Colores
 COLORS = {
     0: (255, 255, 255),        # blanco (vacío)
-    1: (50, 50, 50),           # gris oscuro (obstáculo)
-    2: (0, 200, 0),            # verde (inicio)
-    3: (200, 0, 0),            # rojo (objetivo)
+    1: (183, 194, 194),           # gris oscuro (obstáculo)
+    2: (102, 248, 12),            # verde (inicio)
+    3: (243, 183, 22),            # rojo (objetivo)
+    4: (161, 161, 161),     # color del raton 
     'visited': (100, 149, 237),# azul claro (explorado)
     'path': (255, 255, 0)      # amarillo (camino)
 }
-ROBOT_COLOR = (0, 0, 255)      # azul para robot
 
 # Variables globales
-ROWS, COLS = 10, 15  # Dimensiones por defecto
 start = (0, 0)       # Posición inicial por defecto
 goal = (ROWS - 1, COLS - 1)  # Posición objetivo por defecto
 maze = []
@@ -121,34 +123,10 @@ def a_star(start, goal, screen):
 
     return reconstruct_path(came_from, start, goal)
 
-# --- Búsqueda Híbrida ---
-def hybrid_search(start, goal, screen):
-    print("Intentando BFS...")
-    path = bfs(start, goal, screen)
-    if path:
-        print("Ruta encontrada con BFS.")
-        return path
-
-    print("BFS falló. Intentando A*...")
-    path = a_star(start, goal, screen)
-    if path:
-        print("Ruta encontrada con A*.")
-        return path
-
-    print("A* falló. Intentando DFS...")
-    path = dfs(start, goal, screen)
-    if path:
-        print("Ruta encontrada con DFS.")
-        return path
-
-    print("No se encontró una ruta válida con ninguna técnica.")
-    return None
-
-# --- Funciones de dibujo ---
 def draw_tile(screen, pos, cell_type):
     color = COLORS[cell_type] if isinstance(cell_type, int) else COLORS[cell_type]
     pygame.draw.rect(screen, color, (pos[1] * TILE_SIZE, pos[0] * TILE_SIZE, TILE_SIZE, TILE_SIZE))
-    pygame.draw.rect(screen, (180, 180, 180), (pos[1] * TILE_SIZE, pos[0] * TILE_SIZE, TILE_SIZE, TILE_SIZE), 1)
+    pygame.draw.rect(screen, (79, 93, 98), (pos[1] * TILE_SIZE, pos[0] * TILE_SIZE, TILE_SIZE, TILE_SIZE), 1)
 
 def draw_maze(screen, path=None, robot_pos=None):
     for i in range(ROWS):
@@ -166,25 +144,6 @@ def draw_maze(screen, path=None, robot_pos=None):
         pygame.draw.circle(screen, ROBOT_COLOR, center, radius)
     pygame.display.flip()
 
-def draw_sidebar(screen):
-    sidebar_width = 200
-    pygame.draw.rect(screen, (200, 200, 200), (COLS * TILE_SIZE, 0, sidebar_width, ROWS * TILE_SIZE))
-    font = pygame.font.SysFont(None, 24)
-    instructions = [
-        "1: BFS",
-        "2: DFS",
-        "3: A*",
-        "H: Búsqueda Híbrida",
-        "R: Reiniciar",
-        "M: Mover Meta",
-        "S: Establecer Inicio",
-        "G: Establecer Objetivo",
-        "Click: Agregar/Quitar Obstáculo"
-    ]
-    for i, text in enumerate(instructions):
-        img = font.render(text, True, (0, 0, 0))
-        screen.blit(img, (COLS * TILE_SIZE + 10, 10 + i * 30))
-
 # --- Animación del robot ---
 def animate_robot(screen, path):
     robot_pos = path[0]
@@ -193,7 +152,6 @@ def animate_robot(screen, path):
         draw_maze(screen, path, robot_pos)
         pygame.time.delay(200)
     return robot_pos
-
 # --- Cargar configuración desde archivo JSON ---
 def load_maze_from_file(filename):
     global ROWS, COLS, start, goal, maze
@@ -218,35 +176,142 @@ def load_maze_from_file(filename):
         print(f"Error al cargar el archivo de configuración: {e}")
         sys.exit()
 
-# --- Bucle principal ---
+# --- Búsqueda por Costo Uniforme ---
+def uniform_cost_search(start, goal, screen):
+    frontier = []
+    heapq.heappush(frontier, (0, start))  # (costo, posición)
+    came_from = {start: None}
+    cost_so_far = {start: 0}
+
+    while frontier:
+        pygame.time.delay(50)  # pausa para animar
+        current_cost, current = heapq.heappop(frontier)
+
+        if current == goal:
+            break
+
+        for neighbor in get_neighbors(current):
+            new_cost = cost_so_far[current] + 1  # costo uniforme: cada paso tiene costo 1
+            if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
+                cost_so_far[neighbor] = new_cost
+                priority = new_cost  # Prioridad es solo el costo acumulado
+                heapq.heappush(frontier, (priority, neighbor))
+                came_from[neighbor] = current
+                # marcar explorado
+                if maze[neighbor[0]][neighbor[1]] not in [2, 3]:
+                    draw_tile(screen, neighbor, 'visited')
+        pygame.display.flip()
+
+    return reconstruct_path(came_from, start, goal)
+
+
+# --- Búsqueda Avara ---
+def greedy_best_first_search(start, goal, screen):
+    frontier = []
+    heapq.heappush(frontier, (manhattan(start, goal), start))  # (heurística, posición)
+    came_from = {start: None}
+
+    while frontier:
+        pygame.time.delay(50)  # pausa para animar
+        _, current = heapq.heappop(frontier)
+
+        if current == goal:
+            break
+
+        for neighbor in get_neighbors(current):
+            if neighbor not in came_from:
+                priority = manhattan(neighbor, goal)  # Solo usa la heurística
+                heapq.heappush(frontier, (priority, neighbor))
+                came_from[neighbor] = current
+                # marcar explorado
+                if maze[neighbor[0]][neighbor[1]] not in [2, 3]:
+                    draw_tile(screen, neighbor, 'visited')
+        pygame.display.flip()
+
+    return reconstruct_path(came_from, start, goal)
+
+
+# --- Búsqueda Híbrida Actualizada ---
+def hybrid_search(start, goal, screen):
+    print("Intentando BFS...")
+    path = bfs(start, goal, screen)
+    if path:
+        print("Ruta encontrada con BFS.")
+        return path
+
+    print("BFS falló. Intentando A*...")
+    path = a_star(start, goal, screen)
+    if path:
+        print("Ruta encontrada con A*.")
+        return path
+
+    print("A* falló. Intentando Búsqueda por Costo Uniforme...")
+    path = uniform_cost_search(start, goal, screen)
+    if path:
+        print("Ruta encontrada con Búsqueda por Costo Uniforme.")
+        return path
+
+    print("Costo Uniforme falló. Intentando Búsqueda Avara...")
+    path = greedy_best_first_search(start, goal, screen)
+    if path:
+        print("Ruta encontrada con Búsqueda Avara.")
+        return path
+
+    print("Búsqueda Avara falló. Intentando DFS...")
+    path = dfs(start, goal, screen)
+    if path:
+        print("Ruta encontrada con DFS.")
+        return path
+
+    print("No se encontró una ruta válida con ninguna técnica.")
+    return None
+
+
+# --- Actualización del Sidebar ---
+def draw_sidebar(screen):
+    sidebar_width = 200
+    pygame.draw.rect(screen, (192, 227, 237), (COLS * TILE_SIZE, 0, sidebar_width, ROWS * TILE_SIZE))
+    font = pygame.font.SysFont("Comic Sans", 17)
+    instructions = [
+        "1: BFS",
+        "2: DFS",
+        "3: A*",
+        "4: Costo Uniforme",
+        "5: Búsqueda Avara",
+        "H: Búsqueda Híbrida",
+        "R: Reiniciar",
+        "M: Mover Meta",
+        "S: Establecer Inicio",
+        "G: Establecer Objetivo",
+        "Click: Agregar/Quitar Obstáculo"
+    ]
+    for i, text in enumerate(instructions):
+        img = font.render(text, True, (0, 0, 0))
+        screen.blit(img, (COLS * TILE_SIZE + 10, 20 + i * 30))
+
+
+# --- Actualización del Manejo de Eventos ---
 def main():
     pygame.init()
     global ROWS, COLS, start, goal, maze
-
     # Cargar configuración inicial
     load_maze_from_file("maze_config.json")
-
     screen = pygame.display.set_mode((COLS * TILE_SIZE + 200, ROWS * TILE_SIZE))
     pygame.display.set_caption("Agente Inteligente - Laberinto Dinámico")
-
     running = True
     path = []
     robot_pos = start
-
     while running:
         draw_maze(screen, path, robot_pos)
         draw_sidebar(screen)
-
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-
             elif pygame.mouse.get_pressed()[0]:  # Click izquierdo
                 x, y = pygame.mouse.get_pos()
                 row, col = y // TILE_SIZE, x // TILE_SIZE
                 if (row, col) not in [start, goal]:
                     maze[row][col] = 1 if maze[row][col] == 0 else 0
-
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_1:  # BFS
                     path = bfs(start, goal, screen)
@@ -266,6 +331,18 @@ def main():
                         robot_pos = animate_robot(screen, path)
                     else:
                         print("No se encontró una ruta válida con A*.")
+                elif event.key == pygame.K_4:  # Costo Uniforme
+                    path = uniform_cost_search(start, goal, screen)
+                    if path:
+                        robot_pos = animate_robot(screen, path)
+                    else:
+                        print("No se encontró una ruta válida con Costo Uniforme.")
+                elif event.key == pygame.K_5:  # Búsqueda Avara
+                    path = greedy_best_first_search(start, goal, screen)
+                    if path:
+                        robot_pos = animate_robot(screen, path)
+                    else:
+                        print("No se encontró una ruta válida con Búsqueda Avara.")
                 elif event.key == pygame.K_h:  # Búsqueda híbrida
                     path = hybrid_search(start, goal, screen)
                     if path:
@@ -295,10 +372,9 @@ def main():
                         maze[goal[0]][goal[1]] = 0  # Limpiar la antigua posición
                         goal = (row, col)
                         maze[goal[0]][goal[1]] = 3  # Establecer nueva posición
-
     pygame.quit()
     sys.exit()
 
+
 if __name__ == "__main__":
     main()
-    
