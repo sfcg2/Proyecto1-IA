@@ -6,10 +6,11 @@ from collections import deque
 import json
 
 # === Configuración ===
-TILE_SIZE = 80
+TILE_SIZE = 150
 ROWS, COLS = 4,4
 EMPTY, OBSTACLE, START, GOAL = 0, 1, 2, 3
 ROBOT_COLOR = 4
+mensajes = []
 # Colores
 COLORS = {
     0: (255, 255, 255),        # blanco (vacío)
@@ -97,6 +98,9 @@ def dfs(start, goal, screen):
 
 def a_star(start, goal, screen):
     frontier = []
+    mensajes.clear()
+    draw_sidebar(screen)
+    iteraciones = 0
     heapq.heappush(frontier, (0, start))
     came_from = {start: None}
     cost_so_far = {start: 0}
@@ -112,7 +116,8 @@ def a_star(start, goal, screen):
             new_cost = cost_so_far[current] + 1
             if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
                 cost_so_far[neighbor] = new_cost
-                priority = new_cost + manhattan(neighbor, goal)
+                heuristica = manhattan(neighbor, goal)
+                priority = new_cost + heuristica
                 heapq.heappush(frontier, (priority, neighbor))
                 came_from[neighbor] = current
 
@@ -120,9 +125,12 @@ def a_star(start, goal, screen):
                 if maze[neighbor[0]][neighbor[1]] not in [2, 3]:
                     draw_tile(screen, neighbor, 'visited')
         pygame.display.flip()
+    mensajes.append(f'f({iteraciones+1}): {new_cost} + {heuristica} = {priority}')
+    iteraciones += 1
 
     return reconstruct_path(came_from, start, goal)
 
+#Dibuja el laberinto
 def draw_tile(screen, pos, cell_type):
     color = COLORS[cell_type] if isinstance(cell_type, int) else COLORS[cell_type]
     pygame.draw.rect(screen, color, (pos[1] * TILE_SIZE, pos[0] * TILE_SIZE, TILE_SIZE, TILE_SIZE))
@@ -173,16 +181,18 @@ def load_maze_from_file(filename):
             row, col = obstacle
             maze[row][col] = 1  # OBSTACLE
     except Exception as e:
-        print(f"Error al cargar el archivo de configuración: {e}")
+        almacenamiento_mensajes(f"Error al cargar el archivo de configuración: {e}")
         sys.exit()
 
 # --- Búsqueda por Costo Uniforme ---
 def uniform_cost_search(start, goal, screen):
     frontier = []
+    mensajes.clear()
+    draw_sidebar(screen)
     heapq.heappush(frontier, (0, start))  # (costo, posición)
     came_from = {start: None}
     cost_so_far = {start: 0}
-
+    iteraciones = 0
     while frontier:
         pygame.time.delay(50)  # pausa para animar
         current_cost, current = heapq.heappop(frontier)
@@ -201,7 +211,8 @@ def uniform_cost_search(start, goal, screen):
                 if maze[neighbor[0]][neighbor[1]] not in [2, 3]:
                     draw_tile(screen, neighbor, 'visited')
         pygame.display.flip()
-
+        mensajes.append(f'El costo total g({iteraciones+1}): {new_cost}')
+        iteraciones += 1
     return reconstruct_path(came_from, start, goal)
 
 
@@ -233,43 +244,48 @@ def greedy_best_first_search(start, goal, screen):
 
 # --- Búsqueda Híbrida Actualizada ---
 def hybrid_search(start, goal, screen):
-    print("Intentando BFS...")
+    mensajes.clear()
+    draw_sidebar(screen)
+    almacenamiento_mensajes("Intentando BFS...")
     path = bfs(start, goal, screen)
     if path:
-        print("Ruta encontrada con BFS.")
+        almacenamiento_mensajes("Ruta encontrada con BFS.")
         return path
 
-    print("BFS falló. Intentando A*...")
+    almacenamiento_mensajes("- BFS falló. Intentando A*...")
     path = a_star(start, goal, screen)
     if path:
-        print("Ruta encontrada con A*.")
+        almacenamiento_mensajes("- Ruta encontrada con A*.")
         return path
 
-    print("A* falló. Intentando Búsqueda por Costo Uniforme...")
+    almacenamiento_mensajes("- A* falló. Intentando Búsqueda por Costo Uniforme...")
     path = uniform_cost_search(start, goal, screen)
     if path:
-        print("Ruta encontrada con Búsqueda por Costo Uniforme.")
+        almacenamiento_mensajes(":) Ruta encontrada con Búsqueda por Costo Uniforme.")
         return path
 
-    print("Costo Uniforme falló. Intentando Búsqueda Avara...")
+    almacenamiento_mensajes("- Costo Uniforme falló. Intentando Búsqueda Avara...")
     path = greedy_best_first_search(start, goal, screen)
     if path:
-        print("Ruta encontrada con Búsqueda Avara.")
+        almacenamiento_mensajes(":) Ruta encontrada con Búsqueda Avara.")
         return path
 
-    print("Búsqueda Avara falló. Intentando DFS...")
+    almacenamiento_mensajes("- Búsqueda Avara falló. Intentando DFS...")
     path = dfs(start, goal, screen)
     if path:
-        print("Ruta encontrada con DFS.")
+        almacenamiento_mensajes(":) Ruta encontrada con DFS.")
         return path
 
-    print("No se encontró una ruta válida con ninguna técnica.")
+    almacenamiento_mensajes(":( No se encontró una ruta válida con ninguna técnica.")
     return None
 
 
+def almacenamiento_mensajes(mensaje):
+    mensajes.append(mensaje)
+
 # --- Actualización del Sidebar ---
 def draw_sidebar(screen):
-    sidebar_width = 200
+    sidebar_width = 300
     pygame.draw.rect(screen, (192, 227, 237), (COLS * TILE_SIZE, 0, sidebar_width, ROWS * TILE_SIZE))
     font = pygame.font.SysFont("Comic Sans", 17)
     instructions = [
@@ -287,7 +303,22 @@ def draw_sidebar(screen):
     ]
     for i, text in enumerate(instructions):
         img = font.render(text, True, (0, 0, 0))
-        screen.blit(img, (COLS * TILE_SIZE + 10, 20 + i * 30))
+        screen.blit(img, (COLS * TILE_SIZE + 10, 10 + i * 30))
+
+    #Area donde muestra los mensajes, cuando cambia de un algoritmo a otro
+    area_x = COLS * TILE_SIZE + 10
+    area_y = 400
+    area_ancho = sidebar_width - 20
+    area_altura = 100
+    
+    pygame.draw.rect(screen, (255, 255, 255), (area_x, area_y, area_ancho, area_altura),0,20)
+    font = pygame.font.SysFont("Comic Sans", 17)
+
+    for i, mensj in enumerate(mensajes):
+        img = font.render(mensj, True, (0, 0, 0))
+        screen.blit(img, (area_x + 5, area_y + 5 + i *20))
+    
+
 
 
 # --- Actualización del Manejo de Eventos ---
@@ -296,7 +327,7 @@ def main():
     global ROWS, COLS, start, goal, maze
     # Cargar configuración inicial
     load_maze_from_file("maze_config.json")
-    screen = pygame.display.set_mode((COLS * TILE_SIZE + 200, ROWS * TILE_SIZE))
+    screen = pygame.display.set_mode((COLS * TILE_SIZE + 300, ROWS * TILE_SIZE))
     pygame.display.set_caption("Agente Inteligente - Laberinto Dinámico")
     running = True
     path = []
@@ -314,41 +345,44 @@ def main():
                     maze[row][col] = 1 if maze[row][col] == 0 else 0
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_1:  # BFS
+                    mensajes.clear
+                    draw_sidebar(screen)
                     path = bfs(start, goal, screen)
                     if path:
                         robot_pos = animate_robot(screen, path)
                     else:
-                        print("No se encontró una ruta válida con BFS.")
+                        almacenamiento_mensajes("No se encontró una ruta válida con BFS.")
                 elif event.key == pygame.K_2:  # DFS
                     path = dfs(start, goal, screen)
                     if path:
                         robot_pos = animate_robot(screen, path)
                     else:
-                        print("No se encontró una ruta válida con DFS.")
+                        almacenamiento_mensajes("No se encontró una ruta válida con DFS.")
                 elif event.key == pygame.K_3:  # A*
                     path = a_star(start, goal, screen)
                     if path:
                         robot_pos = animate_robot(screen, path)
                     else:
-                        print("No se encontró una ruta válida con A*.")
+                        almacenamiento_mensajes("No se encontró una ruta válida con A*.")
                 elif event.key == pygame.K_4:  # Costo Uniforme
                     path = uniform_cost_search(start, goal, screen)
                     if path:
                         robot_pos = animate_robot(screen, path)
                     else:
-                        print("No se encontró una ruta válida con Costo Uniforme.")
+                        almacenamiento_mensajes("No se encontró una ruta válida con Costo Uniforme.")
                 elif event.key == pygame.K_5:  # Búsqueda Avara
                     path = greedy_best_first_search(start, goal, screen)
                     if path:
                         robot_pos = animate_robot(screen, path)
                     else:
-                        print("No se encontró una ruta válida con Búsqueda Avara.")
+                        almacenamiento_mensajes("No se encontró una ruta válida con Búsqueda Avara.")
                 elif event.key == pygame.K_h:  # Búsqueda híbrida
+                    
                     path = hybrid_search(start, goal, screen)
                     if path:
                         robot_pos = animate_robot(screen, path)
                     else:
-                        print("No se encontró una ruta válida con la búsqueda híbrida.")
+                        almacenamiento_mensajes("No se encontró una ruta válida con la búsqueda híbrida.")
                 elif event.key == pygame.K_r:  # Reiniciar
                     load_maze_from_file("maze_config.json")
                     path = []
@@ -365,6 +399,7 @@ def main():
                         maze[start[0]][start[1]] = 0  # Limpiar la antigua posición
                         start = (row, col)
                         maze[start[0]][start[1]] = 2  # Establecer nueva posición
+                        robot_pos = start
                 elif event.key == pygame.K_g:  # Establecer nueva posición de objetivo
                     x, y = pygame.mouse.get_pos()
                     row, col = y // TILE_SIZE, x // TILE_SIZE
