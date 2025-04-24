@@ -3,8 +3,8 @@ import sys
 import heapq
 import time
 
-TILE_SIZE = 40
-ROWS, COLS = 10, 15
+TILE_SIZE = 80
+ROWS, COLS = 4,4
 EMPTY, OBSTACLE, START, GOAL = 0, 1, 2, 3
 
 # Colores
