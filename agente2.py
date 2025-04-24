@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 TILE_SIZE = 150
 ROWS, COLS = 4,4
 EMPTY, OBSTACLE, START, GOAL = 0, 1, 2, 3
-ROBOT_COLOR = 4
+AGENTE_COLOR = 4
 mensajes = [
 
     "Estado Inicial: (2,0)",
@@ -29,10 +29,10 @@ COLORS = {
     0: (255, 255, 255),        # blanco (vacío)
     1: (183, 194, 194),           # gris oscuro (obstáculo)
     2: (102, 248, 12),            # verde (inicio)
-    3: (243, 183, 22),            # rojo (objetivo)
-    4: (161, 161, 161),     # color del raton 
-    'visited': (100, 149, 237),# azul claro (explorado)
-    'path': (255, 255, 0)      # amarillo (camino)
+    3: (243, 183, 22),            # amarillo (objetivo)
+    4: (161, 161, 161),           # color del raton 
+    'visited': (100, 149, 237),   # azul claro (explorado)
+    'path': (255, 255, 0)         # amarillo (camino)
 }
 
 # Variables globales
@@ -85,6 +85,7 @@ def bfs(start, goal, screen):
         pygame.display.flip()
 
     return reconstruct_path(came_from, start, goal)
+
 def dfs(start, goal, screen):
     stack = [start]
     came_from = {start: None}
@@ -148,7 +149,7 @@ def draw_tile(screen, pos, cell_type):
     pygame.draw.rect(screen, color, (pos[1] * TILE_SIZE, pos[0] * TILE_SIZE, TILE_SIZE, TILE_SIZE))
     pygame.draw.rect(screen, (79, 93, 98), (pos[1] * TILE_SIZE, pos[0] * TILE_SIZE, TILE_SIZE, TILE_SIZE), 2)
 
-def draw_maze(screen, path=None, robot_pos=None):
+def draw_maze(screen, path=None, agente_pos=None):
     for i in range(ROWS):
         for j in range(COLS):
             draw_tile(screen, (i, j), maze[i][j])
@@ -156,22 +157,23 @@ def draw_maze(screen, path=None, robot_pos=None):
         for pos in path:
             if maze[pos[0]][pos[1]] not in [2, 3]:
                 draw_tile(screen, pos, 'path')
-    if robot_pos:
-        # dibujar robot como círculo
-        x, y = robot_pos
+    if agente_pos:
+        # dibujar agente como círculo
+        x, y = agente_pos
         center = (y * TILE_SIZE + TILE_SIZE // 2, x * TILE_SIZE + TILE_SIZE // 2)
         radius = TILE_SIZE // 3
-        pygame.draw.circle(screen, ROBOT_COLOR, center, radius)
+        pygame.draw.circle(screen, AGENTE_COLOR, center, radius)
     pygame.display.flip()
 
-# --- Animación del robot ---
-def animate_robot(screen, path):
-    robot_pos = path[0]
+# --- Animación del agente ---
+def animate_agente(screen, path):
+    agente_pos = path[0]
     for pos in path[1:]:
-        robot_pos = pos
-        draw_maze(screen, path, robot_pos)
+        agente_pos = pos
+        draw_maze(screen, path, agente_pos)
         pygame.time.delay(200)
-    return robot_pos
+    return agente_pos
+
 # --- Cargar configuración desde archivo JSON ---
 def load_maze_from_file(filename):
     global ROWS, COLS, start, goal, maze
@@ -205,6 +207,7 @@ def uniform_cost_search(start, goal, screen):
     came_from = {start: None}
     cost_so_far = {start: 0}
     iteraciones = 0
+    
     while frontier:
         pygame.time.delay(50)  # pausa para animar
         current_cost, current = heapq.heappop(frontier)
@@ -336,10 +339,6 @@ def draw_sidebar(screen):
         img = font.render(mensj, True, (0, 0, 0))
         screen.blit(img, (area_x + 5, area_y+5 + i *20))
     
-
-
-
-# --- Actualización del Manejo de Eventos ---
 def main():
     pygame.init()
     global ROWS, COLS, start, goal, maze
@@ -349,13 +348,14 @@ def main():
     pygame.display.set_caption("Agente Inteligente - Laberinto Dinámico")
     running = True
     path = []
-    robot_pos = start
+    agente_pos = start
+    
     #Datos grafica
     nombres_algt = []
     tiempos = []
 
     while running:
-        draw_maze(screen, path, robot_pos)
+        draw_maze(screen, path, agente_pos)
         draw_sidebar(screen)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -375,7 +375,7 @@ def main():
                     nombres_algt.append(nombre)
                     tiempos.append(tiempo)
                     if path:
-                        animate_robot(screen, path)
+                        animate_agente(screen, path)
                     else:
                         almacenamiento_mensajes(f"No se encontró una ruta válida con {nombre}.")
 
@@ -385,7 +385,7 @@ def main():
                     path = bfs(start, goal, screen)
                     mide_tiempo(bfs,"BFS")
                     if path:
-                        robot_pos = animate_robot(screen, path)
+                        agente_pos = animate_agente(screen, path)
                     else:
                         almacenamiento_mensajes("No se encontró una ruta válida con BFS.")
                 elif event.key == pygame.K_2:  # DFS
@@ -393,7 +393,7 @@ def main():
                     mide_tiempo(dfs,"DFS")
                     path = dfs(start, goal, screen)
                     if path:
-                        robot_pos = animate_robot(screen, path)
+                        agente_pos = animate_agente(screen, path)
                     else:
                         almacenamiento_mensajes("No se encontró una ruta válida con DFS.")
                 elif event.key == pygame.K_3:  # A*
@@ -401,7 +401,7 @@ def main():
                     mide_tiempo(dfs,"A*")
                     path = a_star(start, goal, screen)
                     if path:
-                        robot_pos = animate_robot(screen, path)
+                        agente_pos = animate_agente(screen, path)
                     else:
                         almacenamiento_mensajes("No se encontró una ruta válida con A*.")
                 elif event.key == pygame.K_4:  # Costo Uniforme
@@ -409,7 +409,7 @@ def main():
                     mide_tiempo(dfs,"Costo Uniforme")
                     path = uniform_cost_search(start, goal, screen)
                     if path:
-                        robot_pos = animate_robot(screen, path)
+                        agente_pos = animate_agente(screen, path)
                     else:
                         almacenamiento_mensajes("No se encontró una ruta válida con Costo Uniforme.")
                 elif event.key == pygame.K_5:  # Búsqueda Avara
@@ -417,7 +417,7 @@ def main():
                     mide_tiempo(dfs,"Búsqueda Avara")
                     path = greedy_best_first_search(start, goal, screen)
                     if path:
-                        robot_pos = animate_robot(screen, path)
+                        agente_pos = animate_agente(screen, path)
                     else:
                         almacenamiento_mensajes("No se encontró una ruta válida con Búsqueda Avara.")
                 elif event.key == pygame.K_h:  # Búsqueda híbrida
@@ -425,7 +425,7 @@ def main():
                     mide_tiempo(dfs,"Busqueda Hibrida")
                     path = hybrid_search(start, goal, screen)
                     if path:
-                        robot_pos = animate_robot(screen, path)
+                        agente_pos = animate_agente(screen, path)
                     else:
                         almacenamiento_mensajes("No se encontró una ruta válida con la búsqueda híbrida.")
                 elif event.key == pygame.K_r:  # Reiniciar
@@ -434,7 +434,7 @@ def main():
                     mensajes.clear()
                     load_maze_from_file("maze_config.json")
                     path = []
-                    robot_pos = start
+                    agente_pos = start
                 elif event.key == pygame.K_m:  # Mover meta
                     nombres_algt.clear()
                     tiempos.clear()
@@ -453,7 +453,7 @@ def main():
                         maze[start[0]][start[1]] = 0  # Limpiar la antigua posición
                         start = (row, col)
                         maze[start[0]][start[1]] = 2  # Establecer nueva posición
-                        robot_pos = start
+                        agente_pos = start
                 elif event.key == pygame.K_g:  # Establecer nueva posición de objetivo
                     nombres_algt.clear()
                     tiempos.clear()
